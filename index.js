@@ -530,6 +530,8 @@ async function emailPointSummary(page, platform) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
+		await page.waitFor(wait);
+		await page.waitFor(wait);
 		
 		//parsing the points isn't required but we would like to know it
 		console.log('parsing points');
