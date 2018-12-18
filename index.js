@@ -401,11 +401,14 @@ async function login(mobile) {
 		console.log('opening home page');
 		
 		//go to the homepage
-		await page.goto(urlHomePage, { timeout: loadWebPageTimeout });
+		const response = await page.goto(urlHomePage, { timeout: loadWebPageTimeout });
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
+		await page.waitFor(wait);
 					
+		console.log(await response.text());
+		
 		//now navigate to the login
 		if (mobile) {
 			
