@@ -1,0 +1,8 @@
+{ 
+  "name": "dependency_list",
+  "version": "0.0.1",
+  "dependencies": { 
+    "puppeteer":  "^1.6.2",
+	"nodemailer": "~2.7.2"
+  }
+}
