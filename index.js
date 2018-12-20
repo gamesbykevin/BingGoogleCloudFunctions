@@ -406,6 +406,7 @@ async function login(mobile) {
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
 		await page.waitFor(wait);
+		await page.waitFor(wait);
 					
 		console.log(await response.text());
 		
@@ -428,6 +429,8 @@ async function login(mobile) {
 				
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
+			await page.waitFor(wait);
+			await page.waitFor(wait);
 			
 			console.log('clicking hamburger menu');
 			
@@ -436,6 +439,8 @@ async function login(mobile) {
 			
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
+			await page.waitFor(wait);
+			await page.waitFor(wait);
 			
 			console.log('clicking sign in');
 			
@@ -443,6 +448,7 @@ async function login(mobile) {
 			await page.click('#hb_a');
 			
 			//wait for page for a short amount of time
+			await page.waitFor(wait);
 			await page.waitFor(wait);
 			
 		} else {
