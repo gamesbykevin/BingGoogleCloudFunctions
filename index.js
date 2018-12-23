@@ -86,11 +86,11 @@ exports.runAgent = async (req, res) => {
 		if (target != null) {
 			
 			if (target == 'desktop') {
-				performSearch(false);
+				performSearch(false, res);
 			} else if (target == 'mobile') {
-				performSearch(true);
+				performSearch(true, res);
 			} else if (target == 'bonus') {
-				bonusLinks();
+				bonusLinks(res);
 			} else {
 				console.log('Invalid target provided: ' + target);
 				res.status(200).send('Done');
@@ -99,7 +99,7 @@ exports.runAgent = async (req, res) => {
 		} else {
 			
 			console.log('Invalid target provided');
-			res.status(500).send('Invalid target provided');
+			res.status(200).send('Done');
 			
 		}			
 		
@@ -111,7 +111,7 @@ exports.runAgent = async (req, res) => {
 	}
 };
 
-async function bonusLinks() {
+async function bonusLinks(res) {
 	
 	try {
 	
@@ -241,10 +241,12 @@ async function bonusLinks() {
 		} catch (er) {
 			console.log(er);
 		}
+		
+		res.status(200).send('Done');
 	}
 }
 
-async function performSearch(mobile) {
+async function performSearch(mobile, res) {
 		
 	try {
 		
@@ -307,6 +309,8 @@ async function performSearch(mobile) {
 		} catch (er) {
 			console.log(er);
 		}
+		
+		res.status(200).send('Done');
 	}
 }
 
