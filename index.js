@@ -7,7 +7,7 @@ const util = require('util');
 //object used to send emails
 const nodemailer = require('nodemailer'); 
 
-//bing login credentials
+//login credentials
 const username = process.env.username;
 const password = process.env.password;
 
@@ -86,11 +86,11 @@ exports.runAgent = async (req, res) => {
 		if (target != null) {
 			
 			if (target == 'desktop') {
-				performSearch(false, res);
+				performSearch(false);
 			} else if (target == 'mobile') {
-				performSearch(true, res);
+				performSearch(true);
 			} else if (target == 'bonus') {
-				bonusLinks(res);
+				bonusLinks();
 			} else {
 				console.log('Invalid target provided: ' + target);
 				res.status(200).send('Done');
@@ -99,7 +99,7 @@ exports.runAgent = async (req, res) => {
 		} else {
 			
 			console.log('Invalid target provided');
-			res.status(200).send('Done');
+			res.status(500).send('Invalid target provided');
 			
 		}			
 		
@@ -111,7 +111,7 @@ exports.runAgent = async (req, res) => {
 	}
 };
 
-async function bonusLinks(res) {
+async function bonusLinks() {
 	
 	try {
 	
@@ -126,7 +126,6 @@ async function bonusLinks(res) {
 		await page.goto(urlRewards, { timeout: loadWebPageTimeout });
 		
 		//wait for page for a short amount of time
-		await page.waitFor(wait);
 		await page.waitFor(wait);
 		await page.waitFor(wait);
 		
@@ -151,7 +150,6 @@ async function bonusLinks(res) {
 				await page.goto(urlRewards, { timeout: loadWebPageTimeout });
 				
 				//wait for page for a short amount of time
-				await page.waitFor(wait);
 				await page.waitFor(wait);
 				await page.waitFor(wait);
 				
@@ -241,12 +239,10 @@ async function bonusLinks(res) {
 		} catch (er) {
 			console.log(er);
 		}
-		
-		res.status(200).send('Done');
 	}
 }
 
-async function performSearch(mobile, res) {
+async function performSearch(mobile) {
 		
 	try {
 		
@@ -309,8 +305,6 @@ async function performSearch(mobile, res) {
 		} catch (er) {
 			console.log(er);
 		}
-		
-		res.status(200).send('Done');
 	}
 }
 
@@ -409,11 +403,7 @@ async function login(mobile) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
-		await page.waitFor(wait);
-		await page.waitFor(wait);
-					
-		console.log(await response.text());
-		
+      
 		//now navigate to the login
 		if (mobile) {
 			
@@ -422,6 +412,7 @@ async function login(mobile) {
 			try {
 				
 				//close the promotion banner that appears
+				await page.waitForSelector('.rms_img');
 				await page.click('.rms_img');
 				
 			} catch (error) {
@@ -433,26 +424,23 @@ async function login(mobile) {
 				
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
-			await page.waitFor(wait);
-			await page.waitFor(wait);
-			
+          
 			console.log('clicking hamburger menu');
 			
 			//click hamburger menu
+			await page.waitForSelector('#mHamburger');
 			await page.click('#mHamburger');
 			
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
-			await page.waitFor(wait);
-			await page.waitFor(wait);
-			
+          
 			console.log('clicking sign in');
 			
 			//click sign in
+			await page.waitForSelector('#hb_a');
 			await page.click('#hb_a');
 			
 			//wait for page for a short amount of time
-			await page.waitFor(wait);
 			await page.waitFor(wait);
 			
 		} else {
@@ -460,6 +448,7 @@ async function login(mobile) {
 			console.log('click the login button');
 
 			//click login
+			await page.waitForSelector('.id_button');
 			await page.click('.id_button');
 
 			//wait for page for a short amount of time
@@ -474,12 +463,14 @@ async function login(mobile) {
 		console.log('entering username');
 		
 		//entering user name
+		await page.waitForSelector('#i0116');
 		await page.type('#i0116', username);
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
 		
 		//click next
+		await page.waitForSelector('#idSIButton9');
 		await page.click('#idSIButton9');
 					
 		//wait for page for a short amount of time
@@ -488,6 +479,7 @@ async function login(mobile) {
 		console.log('entering password');
 		
 		//enter password
+		await page.waitForSelector('#i0118');
 		await page.type('#i0118', password);
 		
 		//wait for page for a short amount of time
@@ -496,6 +488,7 @@ async function login(mobile) {
 		console.log('clicking sign in');
 		
 		//finally we can login now
+		await page.waitForSelector('#idSIButton9');
 		await page.click('#idSIButton9');
 		
 		//wait for page for a short amount of time
@@ -540,11 +533,10 @@ async function emailPointSummary(page, platform) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
-		await page.waitFor(wait);
-		await page.waitFor(wait);
 		
 		//parsing the points isn't required but we would like to know it
 		console.log('parsing points');
+		await page.waitForSelector(pointsContainerDesktop);
 		const element = await page.$(pointsContainerDesktop);
 		const text = await page.evaluate(element => element.textContent, element);
 		console.log('points: ' + text);
