@@ -1,3 +1,6 @@
+//used to connect to the database
+const Firestore = require('@google-cloud/firestore');
+
 //used as web driver to browse the web
 const puppeteer = require('puppeteer');
 
@@ -7,7 +10,21 @@ const util = require('util');
 //object used to send emails
 const nodemailer = require('nodemailer'); 
 
-//login credentials
+//how we will access our database to store cookies
+const cookieTableName = process.env.cookieTableName;
+const cookieIdMobile = parseInt(process.env.cookieIdMobile);	//store cookies for mobile under a different id
+const cookieIdDesktop = parseInt(process.env.cookieIdDesktop);	//store cookies for desktop under a different id
+const myProjectId = process.env.myProjectId;
+
+//our firestore reference so we can authenticate connecting
+const firestore = new Firestore({
+	projectId: myProjectId
+});
+
+//what is our account name? used to verify login
+const accountName = process.env.accountName;
+
+//bing login credentials
 const username = process.env.username;
 const password = process.env.password;
 
@@ -59,6 +76,9 @@ const desktopHeight = parseInt(process.env.desktopHeight);
 //track the time we started this process
 const timeStart = new Date().getTime();
 
+//if true, we will hide the browser gui
+const headless = true;
+
 //our browser reference object
 var browser;
 
@@ -86,11 +106,12 @@ exports.runAgent = async (req, res) => {
 		if (target != null) {
 			
 			if (target == 'desktop') {
-				performSearch(false);
+				performSearch(false, res);
 			} else if (target == 'mobile') {
-				performSearch(true);
+				performSearch(true, res);
 			} else if (target == 'bonus') {
-				bonusLinks();
+				//this currently doesn't work due to redirect
+				//bonusLinks();
 			} else {
 				console.log('Invalid target provided: ' + target);
 				res.status(200).send('Done');
@@ -99,7 +120,7 @@ exports.runAgent = async (req, res) => {
 		} else {
 			
 			console.log('Invalid target provided');
-			res.status(500).send('Invalid target provided');
+			res.status(500).send('Done');
 			
 		}			
 		
@@ -124,8 +145,9 @@ async function bonusLinks() {
 		//open rewards page and query our links
 		console.log('opening rewards page');
 		await page.goto(urlRewards, { timeout: loadWebPageTimeout });
-		
+
 		//wait for page for a short amount of time
+		await page.waitFor(wait);
 		await page.waitFor(wait);
 		await page.waitFor(wait);
 		
@@ -150,6 +172,7 @@ async function bonusLinks() {
 				await page.goto(urlRewards, { timeout: loadWebPageTimeout });
 				
 				//wait for page for a short amount of time
+				await page.waitFor(wait);
 				await page.waitFor(wait);
 				await page.waitFor(wait);
 				
@@ -242,7 +265,7 @@ async function bonusLinks() {
 	}
 }
 
-async function performSearch(mobile) {
+async function performSearch(mobile, res) {
 		
 	try {
 		
@@ -291,7 +314,12 @@ async function performSearch(mobile) {
 		//email point summary
 		await emailPointSummary(page, (mobile) ? 'mobile' : 'desktop');
 		
+		//send successful response
+		res.status(200).send('Done');		
+		
 	} catch (e) {
+		
+		res.status(500).send('Done');
 		
 		throw new Error(e);
 		
@@ -374,10 +402,14 @@ function sendEmail(emailSubject, emailBody) {
 
 async function getBrowserPage(mobile) {
 	
+	//open our browser only once
 	console.log('opening browser');
-	browser = await puppeteer.launch({args: ['--no-sandbox']});
+	if (!browser)
+		browser = await puppeteer.launch({args: ['--no-sandbox'], headless: headless});
+		
+	//access the page we will be using to browse
 	const page = await browser.newPage();
-
+	
 	if (mobile) {
 		console.log('User agent: ' + userAgentMobile);
 		await page.setUserAgent(userAgentMobile);
@@ -386,13 +418,90 @@ async function getBrowserPage(mobile) {
 		await page.setViewport({ width: desktopWidth, height: desktopHeight })
 		await page.setUserAgent(userAgentDesktop);
 	}
-
+	
+	//return our page
 	return page;
+}
+
+async function verifyLogin(page, mobile) {
+	
+	try {
+		
+		console.log('verifying login');
+		
+		//opening home page
+		await page.goto(urlHomePage, { timeout: loadWebPageTimeout });
+		
+		//the text we find for comparison
+		var accountNameTag;
+		
+		//the way we verify is different for mobile and desktop
+		if (!mobile) {
+			
+			//tag containing account name
+			accountNameTag = '#id_n';
+			
+		} else {
+			
+			//wait for page for a short amount of time
+			await page.waitFor(wait);
+			await page.waitFor(wait);
+			
+			//click hamburger menu
+			await page.waitForSelector('#mHamburger');
+			await page.click('#mHamburger');
+			
+			//wait for page for a short amount of time
+			await page.waitFor(wait);
+			await page.waitFor(wait);
+			
+			
+			//tag containing account name
+			accountNameTag = '#hb_n';
+		}
+
+		console.log('checking for account name to ensure we are logged in');
+		await page.waitForSelector(accountNameTag);
+		const element = await page.$(accountNameTag);
+		const text = await (await element.getProperty('textContent')).jsonValue();
+		
+		//if account name is on the page we logged in successfully
+		if (text == accountName) {
+			console.log('we are logged in');
+			return true;
+		} else {
+			console.log('Text not found for account name: "' + text + '"');
+		}
+		
+	} catch (error) {
+		console.log(error);
+	}
+	
+	//we couldn't verify that we are logged in
+	console.log('not logged in');
+	return false;
 }
 
 async function login(mobile) {
 	
 	const page = await getBrowserPage(mobile);
+	
+	//were we successful loading cookies?
+	var resultCookie = false;
+	
+	//were we successful verifying the login?
+	var resultVerifyLogin = false;
+	
+	//load our cookies (if they exist)
+	resultCookie = await loadCookies(page, mobile);
+	
+	//if we were able to load our cookies, check if we are logged in
+	if (resultCookie)
+		resultVerifyLogin = await verifyLogin(page, mobile);
+	
+	//if we have verified login no need to continue
+	if (resultVerifyLogin)
+		return page;
 	
 	try {
 		
@@ -403,7 +512,9 @@ async function login(mobile) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
-      
+		await page.waitFor(wait);
+      	await page.waitFor(wait);
+							
 		//now navigate to the login
 		if (mobile) {
 			
@@ -424,7 +535,9 @@ async function login(mobile) {
 				
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
-          
+          	await page.waitFor(wait);
+          	await page.waitFor(wait);
+			
 			console.log('clicking hamburger menu');
 			
 			//click hamburger menu
@@ -433,7 +546,7 @@ async function login(mobile) {
 			
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
-          
+			
 			console.log('clicking sign in');
 			
 			//click sign in
@@ -450,11 +563,6 @@ async function login(mobile) {
 			//click login
 			await page.waitForSelector('.id_button');
 			await page.click('.id_button');
-
-			//wait for page for a short amount of time
-			await page.waitFor(wait);
-			
-			console.log('select the account we want to login as');
 
 			//wait for page for a short amount of time
 			await page.waitFor(wait);
@@ -493,6 +601,23 @@ async function login(mobile) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
+		
+		//verify we are logged in
+		var result = await verifyLogin(page, mobile);
+		
+		//if we aren't logged in, throw error
+		if (!result) {
+			
+			//at this point we should have been logged in
+			throw new Error('Couldn\'t verify login');
+			
+		} else {
+			
+			//get all cookies and save them for future use
+			const cookies = await page.cookies();
+			console.log(cookies);
+			await saveCookies(JSON.stringify(cookies), mobile);
+		}
 		
 	} catch(error) {
 		
@@ -533,6 +658,8 @@ async function emailPointSummary(page, platform) {
 		
 		//wait for page for a short amount of time
 		await page.waitFor(wait);
+		await page.waitFor(wait);
+		await page.waitFor(wait);
 		
 		//parsing the points isn't required but we would like to know it
 		console.log('parsing points');
@@ -549,5 +676,87 @@ async function emailPointSummary(page, platform) {
 		
 	} catch (error) {
 		console.log(error);
+	}
+}
+
+//load our cookie information (if exists)
+async function loadCookies(page, mobile) {
+	
+	//load file data if it exists
+	console.log('loading cookies');
+		
+	//determine which cookie Id we are using
+	var cookieId = (mobile) ? cookieIdMobile : cookieIdDesktop;
+	console.log('cookieId: ' + cookieId);
+	
+	//query the table and return the results in our snapshot
+	var snapshot = await firestore.collection(cookieTableName).where('id', '==', cookieId).get();
+	
+	//make sure our objects are not null and has 1 result as expected
+	if (snapshot != null && snapshot.docs != null && snapshot.docs.length == 1) {
+		
+		console.log('parsing cookies');
+		
+		//read text from db and parse to json array
+		var tmpCookies = JSON.parse(snapshot.docs[0].data().cookieData);
+		
+		//inject each cookie into our browser page
+		for (var i = 0; i < tmpCookies.length; i++) {
+			console.log('injecting cookie - ' + tmpCookies[i].name);
+			await page.setCookie(tmpCookies[i]);
+		}
+		
+		//success
+		return true;
+		
+	} else {
+		console.log('cookies not found');
+	}
+	
+	//we weren't successful loading cookies
+	return false;
+}
+
+//here we will add / update the cookies
+async function saveCookies(cookieData, mobile) {
+	
+	console.log('Saving cookies');
+	
+	try {
+		
+		//determine which cookie Id we are using
+		var cookieId = (mobile) ? cookieIdMobile : cookieIdDesktop;
+		console.log('cookieId: ' + cookieId);		
+		
+		//reference our cookie document
+		const cookieRef = firestore.collection(cookieTableName);
+		
+		//query the table and return the results in our snapshot
+		var snapshot = await cookieRef.where('id', '==', cookieId).get();
+		
+		if (snapshot.docs.length < 1) {
+			
+			//if there are no results we will add
+			var result = await cookieRef.add({id: cookieId, cookieData: cookieData});
+			console.log(result);
+			console.log('Cookie(s) added to db - ' + cookieId);
+			
+		} else {
+			
+			//if cookies already exist we will update
+			var result = await cookieRef.doc(snapshot.docs[0].id).update({cookieData: cookieData});
+			console.log(result);
+			console.log('Cookie(s) updated in db - ' + cookieId);
+		}
+		
+		//return success
+		return true;
+		
+	} catch (error) {
+		
+		console.log(error);
+		
+		//no success
+		return false;
 	}
 }
