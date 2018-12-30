@@ -400,22 +400,41 @@ function sendEmail(emailSubject, emailBody) {
 }
 
 async function getBrowserPage(mobile) {
+
+	var page;
 	
-	//open our browser only once
-	console.log('opening browser');
-	if (!browser)
-		browser = await puppeteer.launch({args: ['--no-sandbox'], headless: headless});
+	//how many attempts to open the browser
+	var count = 0;
+	
+	//here we will continue to create the browser because of anonymous error on google cloud where the web socket is not ready
+	while (true) {
 		
-	//access the page we will be using to browse
-	const page = await browser.newPage();
-	
-	if (mobile) {
-		console.log('User agent: ' + userAgentMobile);
-		await page.setUserAgent(userAgentMobile);
-	} else {
-		console.log('User agent: ' + userAgentDesktop);
-		await page.setViewport({ width: desktopWidth, height: desktopHeight })
-		await page.setUserAgent(userAgentDesktop);
+		//keep track how many times we try to open the browser
+		count = count + 1;
+		
+		try {
+			
+			console.log('opening browser attempt ' + count);
+			browser = await puppeteer.launch({args: ['--no-sandbox'], headless: headless});
+				
+			//access the page we will be using to browse
+			page = await browser.newPage();
+			
+			if (mobile) {
+				console.log('User agent: ' + userAgentMobile);
+				await page.setUserAgent(userAgentMobile);
+			} else {
+				console.log('User agent: ' + userAgentDesktop);
+				await page.setViewport({ width: desktopWidth, height: desktopHeight })
+				await page.setUserAgent(userAgentDesktop);
+			}
+		
+			//if we made it this far we can exit the loop
+			break;
+			
+		} catch (error) {
+			console.log(error);
+		}
 	}
 	
 	//return our page
