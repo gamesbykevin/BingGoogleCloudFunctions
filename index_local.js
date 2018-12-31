@@ -425,10 +425,11 @@ async function getBrowserPage(mobile) {
 				await page.setUserAgent(userAgentMobile);
 			} else {
 				console.log('User agent: ' + userAgentDesktop);
-				await page.setViewport({ width: desktopWidth, height: desktopHeight })
 				await page.setUserAgent(userAgentDesktop);
 			}
 		
+			await page.setViewport({ width: desktopWidth, height: desktopHeight });
+			
 			//if we made it this far we can exit the loop
 			break;
 			
